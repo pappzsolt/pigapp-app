@@ -1,0 +1,89 @@
+docker compose run --rm app sh -c "django-admin startproject app ."
+sudo docker compose run app sh -c "python manage.py startapp pigapp_app"
+docker compose run --rm app sh -c "python manage.py makemigrations"
+
+docker compose run --rm app sh -c "python manage.py makemigrations pigapp_app"
+python manage.py migrate
+
+sudo docker-compose -f docker-compose.yml up
+
+sudo docker compose up -d
+
+api felület:
+http://192.168.1.37:8000/api/docs/
+admin felület:
+http://192.168.1.37:8000/admin
+----
+null helyzetbe állítás container, images
+docker ps -a
+
+docker rm pigapp-backend_proxy_1
+docker rm pigapp-backend_app_1
+
+docker images
+
+docker image rm id
+
+---
+gitlab cicd:
+http://192.168.1.37:81/pigapp/pigapp-backend/-/jobs/346
+
+---
+start project:
+
+sudo docker-compose -f docker-compose.yml up
+imageet törölni kell
+
+---
+example:
+https://github.com/ShubhamSarda/IMDB-Clone-DRF
+
+https://jwt.io/
+todo:
+csak az invoice k lekerdezese
+
+views szetvalasztas
+https://simpleisbetterthancomplex.com/tutorial/2016/08/02/how-to-split-views-into-multiple-files.html
+
+tesztelve:
+http://192.168.1.37:8000/api/pigapp_app/new_cost_repeat/
+http://192.168.1.37:8000/api/pigapp_app/all_costrepeat_sum_cost_list/false
+http://192.168.1.37:8000/api/pigapp_app/costrepeat_list
+http://192.168.1.37:8000/api/pigapp_app/list_cash_flow
+http://192.168.1.37:8000/api/pigapp_app/list_cash_flow_filter_date/2024-08-01
+http://192.168.1.37:8000/api/pigapp_app/new_cost_groups itt tartok
+----------
+angular
+ng serve -o
+
+black --check .
+black --diff .
+. venv/bin/activate
+black .
+---------
+selectek:
+
+--------
+köcsönmök sum costrepeat id alapján
+--------
+SELECT costrepeat_id, SUM(amount ) AS sum_amount
+FROM pigapp_app_cost pac
+where pac.costrepeat_id = 20
+GROUP BY costrepeat_id;
+
+
+cd app
+python manage.py runserver
+http://127.0.0.1:8000/api/docs/
+
+
+black . → végigformáz minden .py fájlt (sortörések, behúzás, idézőjelek, stb.)
+
+isort . → sorba teszi és csoportosítja az importokat
+pip install ruff
+ruff check .
+ruff check . --fix
+ruff check . --fix
+
+ok
+ok

@@ -1,0 +1,17 @@
+Django
+djangorestframework
+django-rest-authtoken
+drf-spectacular
+python-dateutil
+rest_framework_mixins
+Pillow
+uwsgi
+django-filter
+django-cors-headers
+djangorestframework-simplejwt
+djangorestframework_simplejwt
+pandas
+pdfplumber
+psycopg2-binary==2.9.9
+django-environ
+python-dotenv

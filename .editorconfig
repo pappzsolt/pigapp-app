@@ -1,0 +1,34 @@
+# EditorConfig fájl - egységes kódstílus minden fejlesztőnek
+
+# Ez a gyökér fájl
+root = true
+
+# Alapértelmezés minden fájlra
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown fájlokra (ne vágja le a sorvégi szóközöket)
+[*.md]
+trim_trailing_whitespace = false
+
+# YAML fájlok (pl. GitHub Actions)
+[*.yml]
+indent_size = 2
+
+# JSON fájlok
+[*.json]
+indent_size = 2
+
+# HTML, CSS, JS, TS fájlok (Prettier szabvány)
+[*.{html,css,js,ts}]
+indent_size = 2
+
+# Python fájlok (Black és Ruff)
+[*.py]
+indent_size = 4
+

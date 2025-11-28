@@ -1,0 +1,58 @@
+image: alpine:latest
+
+stages:
+- cleaning
+- copy
+- start
+
+default:
+  before_script:
+  - 'command -v rsync >/dev/null || ( apk add --no-cache rsync )'
+  - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )'
+  - 'command -v python3 >/dev/null || ( apk add --no-cache python3 )' # Python telepítése
+  - eval $(ssh-agent -s)
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  - mkdir -p ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+
+cleaning:
+  stage: cleaning
+  script:
+  - |
+    ssh $SSH_USER@$REMOTE_SERVER /bin/bash << 'EOT'
+    docker stop pigapp-backend_proxy_1
+    docker stop pigapp-backend_app_1
+    docker ps --format '{{.Names}}' || { echo "Docker ps failed"; exit 1; }
+    docker rm pigapp-backend_app_1
+    docker rm pigapp-backend_proxy_1
+    docker image rm pigapp-backend_app --force
+    docker image rm pigapp-backend_proxy_1 --force
+    mkdir -p /tmp/develop/
+    cd /tmp/develop/pigapp-backend
+    rm -Rf /tmp/develop/pigapp-backend
+    docker ps --format '{{.Names}}' || { echo "Docker ps failed"; exit 1; }
+    docker image prune -af || { echo "Docker image prune"; exit 1; }
+    EOT
+
+copy:
+  stage: copy
+  script:
+  - |
+    # Rsync használata a fájlok másolásához
+    #rsync -avz -e "ssh -i ./id_rsa.pub" --exclude '.git/' --exclude 'venv' --exclude 'node_modules/' ../pigapp-backend/ $SSH_USER@$REMOTE_SERVER:/tmp/develop/
+    rsync -avz -e "ssh -i ./id_rsa.pub" --exclude '.git/' --exclude 'venv' --exclude 'node_modules/' ../pigapp-backend/ $SSH_USER@$REMOTE_SERVER:/tmp/develop/pigapp-backend/
+start:
+  stage: start
+  script:
+  - |
+    ssh $SSH_USER@$REMOTE_SERVER /bin/bash << 'EOT'
+    docker pull nginxinc/nginx-unprivileged:1-alpine || { echo "Docker pull failed"; exit 1; }
+    docker pull python:3.9.20-alpine || { echo "Docker pull failed"; exit 1; }
+    mkdir -p /tmp/develop/  || { echo "mkdir /tmp/develop/ failed"; exit 1; }
+    cd /tmp/develop/pigapp-backend || { echo "cd /tmp/develop/ failed"; exit 1; }
+    docker-compose -f docker-compose.yml build --no-cache || { echo "build --no-cache"; exit 1; }
+    docker-compose -f docker-compose.yml up -d || { echo "Docker-compose failed"; exit 1; }
+    docker ps --format '{{.Names}}' || { echo "Docker ps failed"; exit 1; }
+
+    exit
+    EOT

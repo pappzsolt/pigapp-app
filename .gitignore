@@ -1,24 +1,63 @@
-# Byte-compiled files
+# ---- Python általános ----
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Virtual environment
-.venv/
-.venv*/
-env/
+# ---- Fordítási / build fájlok ----
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Virtualenv-ek (több név is) ----
 venv/
+.env/
+.venv/
+env/
 .virtualenv/
 
-# Django
+# Ha a virtualenv nem itt van, hanem máshol, ezt nyugodtan törölheted vagy módosíthatod
+
+# ---- Django specifikus ----
 *.log
-static/
-media/
-vol/
+*.pot
+*.pyc
+*.pyo
+*.pyd
+
+# SQLite adatbázis
 db.sqlite3
+db.sqlite3-journal
 
-# Environment variables
+# Migrations: ha akarod, az __init__.py maradjon, a többi mehet trackelve
+# (általában a migrációkat inkább verziókövetjük, úgyhogy ez inkább példa)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Statikus fájlok (collectstatic kimenet)
+staticfiles/
+static/
+
+# Média uploadok – ha nem akarod verziózni
+media/
+
+# ---- Környezeti / config fájlok ----
 .env
+.env.*
+*.env
 
-# MacOS
+# local settings (ha ilyet használsz)
+local_settings.py
+
+# ---- IDE / editor ----
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# ---- OS / egyéb ----
 .DS_Store
-
+Thumbs.db

@@ -1,0 +1,16 @@
+[tool.black]
+line-length = 88
+skip-string-normalization = true
+exclude = '''
+/(
+    \.git
+  | \.tox
+  | \.nox
+  | \.coverage
+  | \.hypothesis
+  | \.pytest
+  | \.eggs
+  | build
+  | dist
+)/
+'''

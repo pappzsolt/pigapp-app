@@ -1,0 +1,24 @@
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+.venv*/
+env/
+venv/
+.virtualenv/
+
+# Django
+*.log
+static/
+media/
+vol/
+db.sqlite3
+
+# Environment variables
+.env
+
+# MacOS
+.DS_Store
+
