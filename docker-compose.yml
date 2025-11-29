@@ -7,13 +7,10 @@ services:
     restart: always
     volumes:
       - static-data:/vol/web
+    env_file:
+      - .env              # <-- TELJES .env bemegy a konténerbe
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOST=${ALLOWED_HOSTS}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}  # ha szükséges felülírni / biztosítani
   proxy:
     build:
       context: ./proxy
@@ -21,11 +18,11 @@ services:
     depends_on:
       - app
     ports:
-      - "80:80" # HTTP
-      - "443:443" # HTTPS
+      - "80:80"
+      - "443:443"
     volumes:
       - static-data:/vol/static
+
 volumes:
   static-data:
-
 
