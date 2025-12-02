@@ -10,6 +10,34 @@ from .models import Invoice
 
 # serializers.py
 
+class UpcomingCostSerializer(serializers.ModelSerializer):
+    invoice_name = serializers.CharField(
+        source="invoice.invoice_name", read_only=True
+    )
+    dev_name = serializers.CharField(
+        source="dev.dev_name", read_only=True
+    )
+    costgroup_name = serializers.CharField(
+        source="costgroup.cost_group_name", read_only=True
+    )
+
+    class Meta:
+        model = Cost
+        fields = (
+            "id",
+            "cost_name",
+            "cost_note",
+            "cost_date",
+            "amount",
+            "paid",
+            "paid_date",
+            "invoice",
+            "invoice_name",
+            "dev",
+            "dev_name",
+            "costgroup",
+            "costgroup_name",
+        )
 
 class CibSummarySerializer(serializers.Serializer):
     """

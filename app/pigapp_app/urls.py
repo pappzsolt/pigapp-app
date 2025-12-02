@@ -200,4 +200,9 @@ urlpatterns = [
         views.CibStatementUploadView.as_view(),
         name="cib-parse",
     ),
+    path(
+        "api/upcoming-costs/",
+        views.UpcomingCostsView.as_view(),
+        name="upcoming-costs",
+    ),
 ]

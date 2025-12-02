@@ -29,7 +29,7 @@ from pigapp_app.serializers import (AllInvoicesTotalAmountSerializer,
                                     NewCashFlowSerializer,
                                     NewCostGroupSerializer,
                                     OnlyCostRepeatSerializer,
-                                    OnlyCostSerializer, OnlyInvoiceSerializer,
+                                    OnlyCostSerializer, OnlyInvoiceSerializer,UpcomingCostSerializer,
                                     UserSerializer)
 from rest_framework import (filters, generics, mixins,
                             permissions, status, viewsets)
@@ -86,6 +86,211 @@ def test(request):
                 {"error": f"Hiba történt: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             ) """
+
+class UpcomingCostsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def get_month_bounds(today: date):
+        """
+        Visszaadja az aktuális hónap első napját,
+        a következő hónap első napját és a következő hónap utolsó napját.
+        """
+        current_first = date(today.year, today.month, 1)
+
+        if today.month == 12:
+            next_first = date(today.year + 1, 1, 1)
+        else:
+            next_first = date(today.year, today.month + 1, 1)
+
+        if next_first.month == 12:
+            after_next_first = date(next_first.year + 1, 1, 1)
+        else:
+            after_next_first = date(next_first.year, next_first.month + 1, 1)
+
+        next_last = after_next_first - timedelta(days=1)
+
+        return current_first, next_first, next_last
+
+    @staticmethod
+    def sum_amount(qs):
+        """
+        Összegzi az amount mezőt, None esetén 0-t ad vissza.
+        """
+        return qs.aggregate(total=Sum("amount"))["total"] or 0
+
+    def get(self, request, format=None):
+        """
+        GET:
+        - aktuális hónap + következő hónap costjai
+        - külön: paid / unpaid
+        - hónaponként: paid_total / unpaid_total
+        - teljes hibakezelés + logolás
+        """
+        # opcionális: valamiféle request azonosító, ha a middleware beállít ilyet
+        request_id = getattr(request, "request_id", None)
+
+        log_context = {
+            "user_id": getattr(request.user, "id", None),
+            "user_email": getattr(request.user, "email", None),
+            "path": request.path,
+            "method": request.method,
+            "request_id": request_id,
+        }
+
+        try:
+            logger.info("UpcomingCostsView GET hívás indult", extra=log_context)
+
+            today = timezone.localdate()
+            current_first, next_first, next_last = self.get_month_bounds(today)
+
+            logger.debug(
+                "Dátum intervallumok kiszámítva",
+                extra={
+                    **log_context,
+                    "today": str(today),
+                    "current_first": str(current_first),
+                    "next_first": str(next_first),
+                    "next_last": str(next_last),
+                },
+            )
+
+            # alap queryset a két hónapra, belogolt userre
+            qs = Cost.objects.filter(
+                cost_date__gte=current_first,
+                cost_date__lte=next_last,
+                user=request.user,
+            )
+
+            logger.debug(
+                "Alap queryset szűrve userre és dátumra",
+                extra={**log_context, "total_count": qs.count()},
+            )
+
+            paid_filter = Q(paid__gt=0)
+            unpaid_filter = Q(paid=0) | Q(paid__isnull=True)
+
+            # current month
+            current_paid_qs = qs.filter(
+                cost_date__gte=current_first,
+                cost_date__lt=next_first,
+            ).filter(paid_filter)
+
+            current_unpaid_qs = qs.filter(
+                cost_date__gte=current_first,
+                cost_date__lt=next_first,
+            ).filter(unpaid_filter)
+
+            # next month
+            next_paid_qs = qs.filter(
+                cost_date__gte=next_first,
+                cost_date__lte=next_last,
+            ).filter(paid_filter)
+
+            next_unpaid_qs = qs.filter(
+                cost_date__gte=next_first,
+                cost_date__lte=next_last,
+            ).filter(unpaid_filter)
+
+            logger.debug(
+                "Queryset-ek előállítva paid/unpaid bontásban",
+                extra={
+                    **log_context,
+                    "current_paid_count": current_paid_qs.count(),
+                    "current_unpaid_count": current_unpaid_qs.count(),
+                    "next_paid_count": next_paid_qs.count(),
+                    "next_unpaid_count": next_unpaid_qs.count(),
+                },
+            )
+
+            # összegek
+            current_paid_total = self.sum_amount(current_paid_qs)
+            current_unpaid_total = self.sum_amount(current_unpaid_qs)
+            next_paid_total = self.sum_amount(next_paid_qs)
+            next_unpaid_total = self.sum_amount(next_unpaid_qs)
+
+            logger.debug(
+                "Összegek kiszámítva",
+                extra={
+                    **log_context,
+                    "current_paid_total": current_paid_total,
+                    "current_unpaid_total": current_unpaid_total,
+                    "next_paid_total": next_paid_total,
+                    "next_unpaid_total": next_unpaid_total,
+                },
+            )
+
+            data = {
+                "success": True,
+                "error": None,
+                "current_month": {
+                    "from": current_first.isoformat(),
+                    "to": (next_first - timedelta(days=1)).isoformat(),
+                    "paid": UpcomingCostSerializer(current_paid_qs, many=True).data,
+                    "unpaid": UpcomingCostSerializer(current_unpaid_qs, many=True).data,
+                    "summary": {
+                        "paid_total": current_paid_total,
+                        "unpaid_total": current_unpaid_total,
+                    },
+                },
+                "next_month": {
+                    "from": next_first.isoformat(),
+                    "to": next_last.isoformat(),
+                    "paid": UpcomingCostSerializer(next_paid_qs, many=True).data,
+                    "unpaid": UpcomingCostSerializer(next_unpaid_qs, many=True).data,
+                    "summary": {
+                        "paid_total": next_paid_total,
+                        "unpaid_total": next_unpaid_total,
+                    },
+                },
+            }
+
+            logger.info("UpcomingCostsView sikeresen lefutott", extra=log_context)
+            return Response(data, status=status.HTTP_200_OK)
+
+        except ValidationError as e:
+            # tipikusan ha valami input validation lenne
+            logger.warning(
+                "ValidationError az UpcomingCostsView-ben",
+                exc_info=True,
+                extra={**log_context, "error": str(e)},
+            )
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except DatabaseError as e:
+            # adatbázis jellegű hibák
+            logger.error(
+                "DatabaseError az UpcomingCostsView-ben",
+                exc_info=True,
+                extra={**log_context, "error": str(e)},
+            )
+            return Response(
+                {
+                    "success": False,
+                    "error": "Adatbázis hiba történt.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        except Exception as e:
+            # minden más váratlan hiba
+            logger.exception(
+                "Váratlan hiba az UpcomingCostsView-ben",
+                extra={**log_context, "error": str(e)},
+            )
+            return Response(
+                {
+                    "success": False,
+                    "error": "Váratlan hiba történt.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class CibStatementUploadView(APIView):
