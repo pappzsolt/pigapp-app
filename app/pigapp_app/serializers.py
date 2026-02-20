@@ -38,6 +38,39 @@ class UpcomingCostSerializer(serializers.ModelSerializer):
             "costgroup",
             "costgroup_name",
         )
+class InvoiceWithCostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = "__all__"
+
+
+class DevWithCostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dev
+        fields = "__all__"
+
+
+class CostRepeatWithCostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CostRepeat
+        fields = "__all__"
+
+
+class CostGroupWithCostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CostGroup
+        fields = "__all__"
+
+
+class CostWithRelationsSerializer(serializers.ModelSerializer):
+    invoice = InvoiceWithCostSerializer(read_only=True)
+    dev = DevWithCostSerializer(read_only=True)
+    costrepeat = CostRepeatWithCostSerializer(read_only=True)
+    costgroup = CostGroupWithCostSerializer(read_only=True)
+
+    class Meta:
+        model = Cost
+        fields = "__all__"
 
 class CibSummarySerializer(serializers.Serializer):
     """

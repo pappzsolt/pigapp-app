@@ -1,7 +1,8 @@
 import logging
 from collections import defaultdict
 from datetime import date, timedelta
-
+from .serializers import CostWithRelationsSerializer
+from .pagination import CostPagination
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -39,14 +40,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from rest_framework.generics import ListAPIView
 from .cib_parser import CibStatementParser
 from .datefu import DateFu
 from .models import (CashFlow, CashFlowGroup, Cost, CostGroup, CostRepeat, Dev,
                      Invoice)
 from .serializers import (CostRepeatWithCostsSerializeToSum,
                           MyTokenObtainPairSerializer)
-
+from rest_framework.renderers import JSONRenderer
 logger = logging.getLogger(__name__)
 
 
@@ -86,6 +87,26 @@ def test(request):
                 {"error": f"Hiba történt: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             ) """
+
+
+class UnpaidCostListAPIView(ListAPIView):
+    serializer_class = CostWithRelationsSerializer
+    pagination_class = CostPagination
+    renderer_classes = [JSONRenderer]  # 🔥 csak JSON
+
+    def get_queryset(self):
+        return (
+            Cost.objects
+            .filter(paid=0)
+            .select_related(
+                "invoice",
+                "dev",
+                "costrepeat",
+                "costgroup",
+                "user",
+            )
+            .order_by("-cost_date", "-paid_date")
+        )
 
 class UpcomingCostsView(APIView):
     permission_classes = [IsAuthenticated]

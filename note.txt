@@ -11,6 +11,7 @@ sudo docker compose up -d
 
 api felület:
 http://192.168.1.37:8000/api/docs/
+http://127.0.0.1:8000/api/docs/
 admin felület:
 http://192.168.1.37:8000/admin
 ----
