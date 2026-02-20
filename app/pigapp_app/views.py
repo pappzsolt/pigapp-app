@@ -1,7 +1,6 @@
 import logging
 from collections import defaultdict
 from datetime import date, timedelta
-from .serializers import CostWithRelationsSerializer
 from .pagination import CostPagination
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -31,6 +30,7 @@ from pigapp_app.serializers import (AllInvoicesTotalAmountSerializer,
                                     NewCostGroupSerializer,
                                     OnlyCostRepeatSerializer,
                                     OnlyCostSerializer, OnlyInvoiceSerializer,UpcomingCostSerializer,
+                                    CostWithRelationsSerializer,
                                     UserSerializer)
 from rest_framework import (filters, generics, mixins,
                             permissions, status, viewsets)
@@ -89,24 +89,6 @@ def test(request):
             ) """
 
 
-class UnpaidCostListAPIView(ListAPIView):
-    serializer_class = CostWithRelationsSerializer
-    pagination_class = CostPagination
-    renderer_classes = [JSONRenderer]  # 🔥 csak JSON
-
-    def get_queryset(self):
-        return (
-            Cost.objects
-            .filter(paid=0)
-            .select_related(
-                "invoice",
-                "dev",
-                "costrepeat",
-                "costgroup",
-                "user",
-            )
-            .order_by("-cost_date", "-paid_date")
-        )
 
 class UpcomingCostsView(APIView):
     permission_classes = [IsAuthenticated]

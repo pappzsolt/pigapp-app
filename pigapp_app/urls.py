@@ -153,6 +153,7 @@ urlpatterns = [
         views.CurrentMonthCostGroup5View.as_view(),
         name="current-month-costgroup-5",
     ),
+
     path(
         "create-cost/", views.CreateCost.as_view(), name="create_cost"
     ),  # POST új költség hozzáadása
@@ -200,5 +201,9 @@ urlpatterns = [
         views.CibStatementUploadView.as_view(),
         name="cib-parse",
     ),
-    path("unpaid-costs/", views.UnpaidCostListAPIView.as_view(), name="unpaid-costs"),
+    path(
+        "cost-check/",
+        views.UnpaidCostListAPIView.as_view(),
+        name="cost-check"
+    ),
 ]
