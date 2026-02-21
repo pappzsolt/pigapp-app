@@ -205,4 +205,6 @@ urlpatterns = [
         views.UpcomingCostsView.as_view(),
         name="upcoming-costs",
     ),
+    path( "cost-check/", views.UnPaidCostListAPIView.as_view(), name="cost-check"),
+
 ]

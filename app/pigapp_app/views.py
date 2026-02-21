@@ -61,34 +61,6 @@ def test(request):
     return JsonResponse(response)
 
 
-# API view
-""" class CostRepeatSummaryView(APIView):
-    def get(self, request, costgroup_id=None):
-        try:
-            queryset = (
-                CostRepeat.objects.filter(costrepeat__user=request.user)
-                .filter(costrepeat__costgroup_id=costgroup_id, costrepeat__paid=0)
-                .distinct()
-            )
-
-            if not queryset.exists():
-                return Response(
-                    {
-                        "detail": f"Nincs találat a megadott costgroup_id={costgroup_id} értékre."
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            serializer = CostRepeatWithCostsSerializeToSum(queryset, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response(
-                {"error": f"Hiba történt: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            ) """
-
-
 
 class UpcomingCostsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1981,3 +1953,22 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+class UnPaidCostListAPIView(ListAPIView):
+    serializer_class = CostWithRelationsSerializer
+    pagination_class = CostPagination
+    renderer_classes = [JSONRenderer]
+
+    def get_queryset(self):
+        return (
+            Cost.objects
+            .filter(paid=0)
+            .select_related(
+                "invoice",
+                "dev",
+                "costrepeat",
+                "costgroup",
+                "user",
+            )
+            .order_by("-cost_date", "-paid_date")
+        )
