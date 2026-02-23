@@ -25,9 +25,16 @@ server {
 
     # Uwsgi proxy beállítása
     location / {
-        uwsgi_pass           ${APP_HOST}:${APP_PORT};
         include              /etc/nginx/uwsgi_params;
         client_max_body_size 10M;
+
+        # Javított header-ek uwsgi-hez
+        uwsgi_param Host $host;
+        uwsgi_param X-Forwarded-Host $host;
+        uwsgi_param X-Forwarded-Proto $scheme;
+        uwsgi_param X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        uwsgi_pass           ${APP_HOST}:${APP_PORT};
     }
 }
 
