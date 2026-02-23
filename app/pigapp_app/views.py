@@ -1956,7 +1956,7 @@ class ManageUserView(generics.RetrieveUpdateAPIView):
 
 class UnPaidCostListAPIView(ListAPIView):
     serializer_class = CostWithRelationsSerializer
-    pagination_class = CostPagination
+    pagination_class = None
     renderer_classes = [JSONRenderer]
 
     def get_queryset(self):
