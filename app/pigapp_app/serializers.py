@@ -89,6 +89,12 @@ class CostSerializerToSum(serializers.ModelSerializer):
         model = Cost
         fields = "__all__"
 
+class CostUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cost
+        fields = "__all__"
+        read_only_fields = ("id", "create_cost_date", "user")
+
 
 """ class CostRepeatWithCostsSerializeToSum(serializers.ModelSerializer):
     costs = CostSerializerToSum(many=True, source="costrepeat")

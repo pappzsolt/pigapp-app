@@ -11,6 +11,7 @@ from django.db.models.functions import ExtractMonth, ExtractYear
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from calendar import monthrange
 from django_filters.rest_framework import DjangoFilterBackend
 from pigapp_app.serializers import (AllInvoicesTotalAmountSerializer,
                                     CashFlowGroupSerializer,
@@ -31,7 +32,8 @@ from pigapp_app.serializers import (AllInvoicesTotalAmountSerializer,
                                     OnlyCostRepeatSerializer,
                                     OnlyCostSerializer, OnlyInvoiceSerializer,UpcomingCostSerializer,
                                     CostWithRelationsSerializer,
-                                    UserSerializer)
+                                    UserSerializer,
+                                    CostUpdateSerializer )
 from rest_framework import (filters, generics, mixins,
                             permissions, status, viewsets)
 from rest_framework.pagination import PageNumberPagination
@@ -60,7 +62,158 @@ def test(request):
     response = {"costs": list(data.values("cost_name", "amount"))}
     return JsonResponse(response)
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from datetime import date
+from calendar import monthrange
+from dateutil.relativedelta import relativedelta
+from .models import Cost
+from .serializers import CostUpdateSerializer
 
+from datetime import date
+from calendar import monthrange
+from dateutil.relativedelta import relativedelta
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+from .models import Cost
+from .serializers import CostUpdateSerializer
+
+
+class PastCostAPIView(APIView):
+    """
+    GET    -> Előző havi costok
+    PUT    -> Teljes módosítás
+    PATCH  -> Részleges módosítás
+    DELETE -> Törlés
+    POST   -> Új rekord létrehozása kiválasztott costokból (+1 hónap)
+    """
+
+    # ---------------------------------
+    # Előző hónap dátumtartomány
+    # ---------------------------------
+    def get_previous_month_range(self):
+        today = date.today()
+
+        if today.month == 1:
+            year = today.year - 1
+            month = 12
+        else:
+            year = today.year
+            month = today.month - 1
+
+        first_day = date(year, month, 1)
+        last_day = date(year, month, monthrange(year, month)[1])
+
+        return first_day, last_day
+
+    # ---------------------------------
+    # Queryset
+    # ---------------------------------
+    def get_queryset(self):
+        first_day, last_day = self.get_previous_month_range()
+
+        return Cost.objects.filter(
+            cost_date__range=(first_day, last_day)
+        ).order_by("-cost_date")
+
+    # ---------------------------------
+    # GET: előző havi costok
+    # ---------------------------------
+    def get(self, request):
+        serializer = CostUpdateSerializer(self.get_queryset(), many=True)
+        return Response(serializer.data)
+
+    # ---------------------------------
+    # PATCH: részleges módosítás
+    # ---------------------------------
+    def patch(self, request, pk):
+        cost = get_object_or_404(self.get_queryset(), pk=pk)
+        serializer = CostUpdateSerializer(cost, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ---------------------------------
+    # PUT: teljes módosítás
+    # ---------------------------------
+    def put(self, request, pk):
+        cost = get_object_or_404(self.get_queryset(), pk=pk)
+        serializer = CostUpdateSerializer(cost, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ---------------------------------
+    # DELETE: törlés
+    # ---------------------------------
+    def delete(self, request, pk):
+        cost = get_object_or_404(self.get_queryset(), pk=pk)
+        cost.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ---------------------------------
+    # POST: új rekord létrehozása (+1 hónap)
+    # ---------------------------------
+    def post(self, request):
+        """
+        request.data példa:
+        [
+            {"id": 12, "amount": 5000},
+            {"id": 15, "cost_note": "Módosított szöveg"}
+        ]
+        """
+
+        new_costs = []
+
+        for item in request.data:
+            source_cost = get_object_or_404(
+                Cost.objects.all(),
+                pk=item.get("id")
+            )
+
+            new_cost_data = {
+                "cost_name": item.get("cost_name", source_cost.cost_name),
+                "cost_note": item.get("cost_note", source_cost.cost_note),
+                "amount": item.get("amount", source_cost.amount),
+
+                # +1 hónap
+                "cost_date": source_cost.cost_date + relativedelta(months=1),
+
+                # 🔥 ÚJ HÓNAP → mindig nem fizetett
+                "paid": False,
+                "paid_date": None,
+
+                "invoice": item.get("invoice", source_cost.invoice),
+                "dev": item.get("dev", source_cost.dev),
+                "costrepeat": item.get("costrepeat", source_cost.costrepeat),
+                "costgroup": item.get("costgroup", source_cost.costgroup),
+                "user": item.get("user", source_cost.user),
+            }
+
+            serializer = CostUpdateSerializer(data=new_cost_data)
+
+            if serializer.is_valid():
+                serializer.save()
+                new_costs.append(serializer.data)
+            else:
+                return Response(
+                    serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        return Response(new_costs, status=status.HTTP_201_CREATED)
 
 class UpcomingCostsView(APIView):
     permission_classes = [IsAuthenticated]
