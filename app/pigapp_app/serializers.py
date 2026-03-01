@@ -93,7 +93,7 @@ class CostUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cost
         fields = "__all__"
-        read_only_fields = ("id", "create_cost_date", "user")
+        read_only_fields = ("id", "create_cost_date")
 
 
 """ class CostRepeatWithCostsSerializeToSum(serializers.ModelSerializer):

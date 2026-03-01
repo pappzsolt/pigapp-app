@@ -85,6 +85,21 @@ from .models import Cost
 from .serializers import CostUpdateSerializer
 
 
+import logging
+from datetime import date
+from calendar import monthrange
+from dateutil.relativedelta import relativedelta
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+from .models import Cost
+from .serializers import CostUpdateSerializer
+
+logger = logging.getLogger(__name__)  # Logger beállítása
+
 class PastCostAPIView(APIView):
     """
     GET    -> Előző havi costok
@@ -109,19 +124,24 @@ class PastCostAPIView(APIView):
 
         first_day = date(year, month, 1)
         last_day = date(year, month, monthrange(year, month)[1])
-
         return first_day, last_day
 
+    def get_current_month_range(self):
+        today = date.today()
+        year = today.year
+        month = today.month
+
+        first_day = date(year, month, 1)
+        last_day = date(year, month, monthrange(year, month)[1])
+        return first_day, last_day
     # ---------------------------------
     # Queryset
     # ---------------------------------
     def get_queryset(self):
-        first_day, last_day = self.get_previous_month_range()
-
+        first_day, last_day = self.get_current_month_range()
         return Cost.objects.filter(
             cost_date__range=(first_day, last_day)
         ).order_by("-cost_date")
-
     # ---------------------------------
     # GET: előző havi costok
     # ---------------------------------
@@ -138,8 +158,10 @@ class PastCostAPIView(APIView):
 
         if serializer.is_valid():
             serializer.save()
+            logger.info(f"Cost {pk} részlegesen frissítve")
             return Response(serializer.data)
 
+        logger.error(f"PATCH hiba cost {pk}: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # ---------------------------------
@@ -151,8 +173,10 @@ class PastCostAPIView(APIView):
 
         if serializer.is_valid():
             serializer.save()
+            logger.info(f"Cost {pk} teljesen frissítve")
             return Response(serializer.data)
 
+        logger.error(f"PUT hiba cost {pk}: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # ---------------------------------
@@ -161,6 +185,7 @@ class PastCostAPIView(APIView):
     def delete(self, request, pk):
         cost = get_object_or_404(self.get_queryset(), pk=pk)
         cost.delete()
+        logger.info(f"Cost {pk} törölve")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ---------------------------------
@@ -174,44 +199,43 @@ class PastCostAPIView(APIView):
             {"id": 15, "cost_note": "Módosított szöveg"}
         ]
         """
-
         new_costs = []
 
         for item in request.data:
-            source_cost = get_object_or_404(
-                Cost.objects.all(),
-                pk=item.get("id")
-            )
-
-            new_cost_data = {
-                "cost_name": item.get("cost_name", source_cost.cost_name),
-                "cost_note": item.get("cost_note", source_cost.cost_note),
-                "amount": item.get("amount", source_cost.amount),
-
-                # +1 hónap
-                "cost_date": source_cost.cost_date + relativedelta(months=1),
-
-                # 🔥 ÚJ HÓNAP → mindig nem fizetett
-                "paid": False,
-                "paid_date": None,
-
-                "invoice": item.get("invoice", source_cost.invoice),
-                "dev": item.get("dev", source_cost.dev),
-                "costrepeat": item.get("costrepeat", source_cost.costrepeat),
-                "costgroup": item.get("costgroup", source_cost.costgroup),
-                "user": item.get("user", source_cost.user),
-            }
-
-            serializer = CostUpdateSerializer(data=new_cost_data)
-
-            if serializer.is_valid():
-                serializer.save()
-                new_costs.append(serializer.data)
-            else:
-                return Response(
-                    serializer.errors,
-                    status=status.HTTP_400_BAD_REQUEST
+            try:
+                source_cost = get_object_or_404(
+                    Cost.objects.all(),
+                    pk=item.get("id")
                 )
+
+                new_cost_data = {
+                    "cost_name": item.get("cost_name", source_cost.cost_name),
+                    "cost_note": item.get("cost_note", source_cost.cost_note),
+                    "amount": item.get("amount", source_cost.amount),
+                    # +1 hónap
+                    "cost_date": source_cost.cost_date + relativedelta(months=1),
+                    # 🔥 ÚJ HÓNAP → mindig nem fizetett
+                    "paid": 0,
+                    "paid_date":  source_cost.paid_date + relativedelta(months=1),
+                    "invoice": item.get("invoice", source_cost.invoice),
+                    "dev": item.get("dev", source_cost.dev),
+                    "costrepeat": item.get("costrepeat", source_cost.costrepeat),
+                    "costgroup": item.get("costgroup", source_cost.costgroup),
+                    "user": item.get("user", source_cost.user),
+                }
+
+                serializer = CostUpdateSerializer(data=new_cost_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    new_costs.append(serializer.data)
+                    logger.info(f"Új cost létrehozva az ID {source_cost.id} alapján, új hónapra")
+                else:
+                    logger.error(f"POST serializer hiba cost {source_cost.id}: {serializer.errors}")
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            except Exception as e:
+                logger.exception(f"POST hiba cost {item.get('id')}: {str(e)}")
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(new_costs, status=status.HTTP_201_CREATED)
 
